@@ -1,0 +1,17 @@
+https://esg-system.onrender.com/excel_view.html
+
+----------------------------------------------------
+
+venv\Scripts\activate
+
+# 1. 進入專案資料夾 (關鍵步驟！)
+cd performance\project_esg_system
+
+# 2. 加入所有檔案 (包含剛剛更新的 database.json)
+git add .
+
+# 3. 提交變更說明
+git commit -m "Update demo data"
+
+# 4. 推送到 GitHub
+git push
