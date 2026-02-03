@@ -1,0 +1,21 @@
+[
+    {
+        "project_id": "DSEBDTW2400001",
+        "year": 2024,
+        "name": "大幫小_節能系統",
+        "type": "顧問-ISO14064",
+        "labor_cost_est": 242450.0,
+        "labor_cost_act": 118614.0,
+        "mgmt_cost_est": 113000.0,
+        "mgmt_cost_act": 53085.0,
+        "elec_save_est": 1454269.0,
+        "elec_price": 3.5,
+        "carbon_credit_amt": 228.0,
+        "carbon_credit_price": 3000.0,
+        "saved_labor_cost": 123836.0,
+        "saved_mgmt_cost": 59915.0,
+        "saved_elec_bill_ntd": 5089941.5,
+        "carbon_total_value": 684000.0,
+        "total_benefit": 5957692.5
+    }
+]
