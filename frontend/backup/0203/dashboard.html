@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>ESG 專案績效儀表板 | Delta Energy</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    
+    <style>
+        :root {
+            --delta-blue: #00A0E9;
+            --delta-blue-dark: #008DCB;
+            --delta-text: #334155;
+            --bg-color: #F5F9FC;
+            --card-radius: 12px;
+        }
+        
+        body { font-family: 'Noto Sans TC', sans-serif; background-color: var(--bg-color); padding: 30px; color: var(--delta-text); }
+
+        .dashboard-header {
+            background: white; padding: 20px 30px; border-radius: var(--card-radius);
+            box-shadow: 0 4px 12px rgba(0, 160, 233, 0.08); margin-bottom: 30px;
+            display: flex; justify-content: space-between; align-items: center;
+            border-top: 4px solid var(--delta-blue);
+        }
+        
+        .logo-img { height: 40px; margin-right: 15px; }
+        h2 { font-weight: 700; color: var(--delta-blue); margin: 0; font-size: 1.5rem; }
+        
+        .badge-mode { background: var(--delta-blue); color: white; padding: 6px 15px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; display: none; }
+
+        .kpi-card {
+            background: white; border-radius: var(--card-radius); padding: 25px; border: none;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); transition: all 0.3s ease; height: 100%;
+            display: flex; flex-direction: column;
+        }
+        .kpi-card:hover { transform: translateY(-5px); box-shadow: 0 8px 16px rgba(0, 160, 233, 0.1); }
+        
+        /* 修正：限制圖表高度容器 */
+        .chart-container {
+            position: relative;
+            height: 220px; /* 固定高度，防止無限拉長 */
+            width: 100%;
+        }
+
+        .card-title { font-size: 1.1rem; font-weight: 600; color: #64748b; margin-bottom: 15px; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px; }
+        .metric-big { font-size: 1.8rem; font-weight: 800; background: linear-gradient(135deg, var(--delta-blue), var(--delta-blue-dark)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+        .progress-container { margin-bottom: 20px; }
+        .progress { height: 16px; border-radius: 8px; background-color: #E6F4FD; }
+        .progress-bar { border-radius: 8px; }
+        
+        .bg-gradient-blue { background: linear-gradient(90deg, #60a5fa, var(--delta-blue)); }
+        .bg-gradient-cyan { background: linear-gradient(90deg, #22d3ee, #06b6d4); }
+        .bg-gradient-teal { background: linear-gradient(90deg, #34d399, #10b981); }
+        
+        .form-select-custom { border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 12px; color: var(--delta-text); }
+        .btn-outline-delta { border: 1px solid var(--delta-blue); color: var(--delta-blue); border-radius: 8px; padding: 8px 15px; text-decoration: none; }
+        .btn-outline-delta:hover { background: var(--delta-blue); color: white; }
+
+        .section-title { margin: 40px 0 20px 0; color: var(--delta-text); font-weight: 700; border-left: 4px solid var(--delta-blue); padding-left: 15px; font-size: 1.25rem; }
+    </style>
+</head>
+<body>
+
+<div class="container-fluid">
+    
+    <div class="dashboard-header">
+        <div class="d-flex align-items-center gap-3">
+            <img src="logo.png" alt="Delta Logo" class="logo-img" onerror="this.style.display='none'">
+            <div>
+                <h2>績效儀表板</h2>
+                <div class="d-flex align-items-center gap-2 mt-1">
+                    <span id="totalBadge" class="badge-mode"><i class="bi bi-trophy-fill me-1"></i> 年度總覽模式</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="d-flex gap-2 align-items-center bg-white p-2 rounded-3 border">
+            <span class="fw-bold text-muted ps-2"><i class="bi bi-funnel text-primary"></i> 篩選:</span>
+            <select id="yearSelector" class="form-select-custom" style="width: 140px;" onchange="filterProjectsByYear()">
+                <option value="ALL">📅 所有年份</option>
+            </select>
+            <select id="projectSelector" class="form-select-custom" style="width: 300px;" onchange="updateDashboard()"></select>
+            <a href="excel_view.html" class="btn btn-outline-delta"><i class="bi bi-pencil-square"></i> 編輯數據</a>
+        </div>
+    </div>
+
+    <div class="section-title">壹、執行績效分析</div>
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="kpi-card">
+                <div class="card-title"><i class="bi bi-people-fill me-2"></i>人力成本</div>
+                <div class="chart-container">
+                    <canvas id="laborChart"></canvas>
+                </div>
+                <div class="text-center mt-3">
+                    <div class="metric-label text-muted">總節省人力成本</div>
+                    <div class="metric-big" id="val_saved_labor">$0</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="kpi-card">
+                <div class="card-title"><i class="bi bi-briefcase-fill me-2"></i>管理成本</div>
+                <div class="chart-container">
+                    <canvas id="mgmtChart"></canvas>
+                </div>
+                <div class="text-center mt-3">
+                    <div class="metric-label text-muted">總節省管理成本</div>
+                    <div class="metric-big" id="val_saved_mgmt">$0</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="kpi-card">
+                <div class="card-title"><i class="bi bi-clock-history me-2"></i>施作工期</div>
+                <div class="chart-container">
+                    <canvas id="daysChart"></canvas>
+                </div>
+                <div class="text-center mt-3">
+                    <div class="metric-label text-muted">累計提前完工</div>
+                    <div class="metric-big" style="color: #f59e0b; background: none; -webkit-text-fill-color: initial;" id="val_saved_days">0 天</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mt-1">
+        <div class="col-md-6">
+            <div class="kpi-card d-flex flex-column align-items-center">
+                <div class="card-title w-100 text-center">管理費用率優化</div>
+                <div style="width: 220px; height: 220px; position: relative;">
+                    <canvas id="mgmtRateChart"></canvas>
+                    <div class="position-absolute top-50 start-50 translate-middle fw-bold fs-4" style="color: var(--delta-blue);" id="center_mgmt_rate">0%</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="kpi-card d-flex flex-column align-items-center">
+                <div class="card-title w-100 text-center">利潤率優化</div>
+                <div style="width: 220px; height: 220px; position: relative;">
+                    <canvas id="profitRateChart"></canvas>
+                    <div class="position-absolute top-50 start-50 translate-middle fw-bold fs-4 text-danger" id="center_profit_rate">0%</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section-title">貳、ESG 環境貢獻與碳權</div>
+    <div class="row">
+        <div class="col-12">
+            <div class="kpi-card">
+                <div class="row">
+                    <div class="col-md-6 pe-md-5 border-end">
+                        <h5 class="mb-4" style="color: var(--delta-blue);"><i class="bi bi-tree-fill me-2"></i>環境效益</h5>
+                        <div class="progress-container"><div class="d-flex justify-content-between mb-1"><span>🌍 減碳量</span> <span id="txt_carbon" class="fw-bold">0/0</span></div><div class="progress"><div id="bar_carbon" class="progress-bar bg-gradient-teal" style="width: 0%"></div></div></div>
+                        <div class="progress-container"><div class="d-flex justify-content-between mb-1"><span>⚡ 節電量</span> <span id="txt_elec" class="fw-bold">0/0</span></div><div class="progress"><div id="bar_elec" class="progress-bar bg-gradient-cyan" style="width: 0%"></div></div></div>
+                        <div class="progress-container"><div class="d-flex justify-content-between mb-1"><span>💰 節省電費</span> <span id="txt_elec_bill" class="fw-bold">0/0</span></div><div class="progress"><div id="bar_elec_bill" class="progress-bar bg-gradient-blue" style="width: 0%"></div></div></div>
+                        <div class="progress-container"><div class="d-flex justify-content-between mb-1"><span>💧 節水量</span> <span id="txt_water" class="fw-bold">0/0</span></div><div class="progress"><div id="bar_water" class="progress-bar bg-info" style="width: 0%"></div></div></div>
+                    </div>
+                    <div class="col-md-6 ps-md-5">
+                        <h5 class="mb-4 text-danger"><i class="bi bi-gem me-2"></i>碳權資產</h5>
+                        <div class="p-3 rounded-3 mb-4 text-center" style="background-color: #FFF5F5;">
+                            <small class="text-danger">預估總碳權價值</small>
+                            <div class="fs-2 fw-bold text-dark" id="txt_total_credit_val">$0</div>
+                        </div>
+                        <div class="progress-container"><div class="d-flex justify-content-between mb-1"><span>📜 碳權額度</span> <span id="txt_credit_amt" class="fw-bold">0/0</span></div><div class="progress"><div id="bar_credit_amt" class="progress-bar bg-secondary" style="width: 0%"></div></div></div>
+                        <div class="progress-container"><div class="d-flex justify-content-between mb-1"><span>💎 碳權價值</span> <span id="txt_credit_price" class="fw-bold">0/0</span></div><div class="progress"><div id="bar_credit_price" class="progress-bar bg-danger" style="width: 0%"></div></div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    Chart.register(ChartDataLabels);
+    let allProjects=[], currentProjects=[], charts={}; 
+    const deltaBlue='#00A0E9', deltaLight='#AEE4FF';
+
+    async function init() {
+        try {
+            const response = await fetch('http://127.0.0.1:8000/get_projects');
+            allProjects = await response.json();
+            initYearSelector(); createCharts(); filterProjectsByYear(); 
+        } catch (e) { console.error(e); }
+    }
+
+    function initYearSelector() {
+        const yearSet = new Set();
+        allProjects.forEach(p => { if(p.year) yearSet.add(p.year); });
+        Array.from(yearSet).sort((a,b)=>b-a).forEach(y => {
+            const opt = document.createElement('option'); opt.value = y; opt.text = `${y} 年`;
+            document.getElementById('yearSelector').add(opt);
+        });
+    }
+
+    function filterProjectsByYear() {
+        const year = document.getElementById('yearSelector').value;
+        const selector = document.getElementById('projectSelector');
+        currentProjects = (year === "ALL") ? allProjects : allProjects.filter(p => p.year == year);
+        selector.innerHTML = '';
+        const totalOpt = document.createElement('option'); totalOpt.value = "TOTAL"; totalOpt.text = (year === "ALL") ? "🏆 歷年總績效" : `🏆 ${year} 年度總績效`;
+        selector.add(totalOpt);
+        currentProjects.forEach((p, idx) => { const opt = document.createElement('option'); opt.value = idx; opt.text = `${p.project_name}`; selector.add(opt); });
+        updateDashboard();
+    }
+
+    function updateDashboard() {
+        const val = document.getElementById('projectSelector').value;
+        const badge = document.getElementById('totalBadge');
+        let p = (val === "TOTAL") ? calculateTotal(currentProjects) : currentProjects[val];
+        
+        if (val === "TOTAL") {
+             badge.style.display = 'inline-flex';
+             badge.innerHTML = `<i class="bi bi-trophy-fill me-1"></i> ${document.getElementById('yearSelector').selectedOptions[0].text} 總覽`;
+        } else {
+             badge.style.display = 'none';
+             p.act_days = calcDays(p.start_date, p.act_end_date); p.est_days = calcDays(p.start_date, p.est_end_date);
+        }
+        renderData(p);
+    }
+
+    const valFloat = (v) => parseFloat(String(v).replace(/,/g,'')) || 0;
+    const calcDays = (s, e) => {
+        if(!s||!e) return 0;
+        let d1=new Date(s), d2=new Date(e);
+        if(isNaN(d1)) d1=new Date(s.replace(/\//g,'-')); if(isNaN(d2)) d2=new Date(e.replace(/\//g,'-'));
+        return isNaN(d1)||isNaN(d2) ? 0 : Math.ceil((d2-d1)/86400000);
+    };
+
+    function calculateTotal(list) {
+        let t = { est_labor_cost:0, act_labor_cost:0, est_mgmt_cost:0, act_mgmt_cost:0, est_days:0, act_days:0, plan_costs:0, act_costs:0, est_carbon_save:0, act_carbon_save:0, est_elec_save:0, act_elec_save:0, est_elec_bill_save:0, act_elec_bill_save:0, est_water_save:0, act_water_save:0, est_carbon_credit:0, act_carbon_credit:0, est_carbon_value:0, act_carbon_price:0 };
+        list.forEach(p => {
+            for(let k in t) {
+                if(k.includes('days')) t[k] += calcDays(p.start_date, k.includes('act')?p.act_end_date:p.est_end_date);
+                else t[k] += valFloat(p[k]);
+            }
+        });
+        return t;
+    }
+
+    function renderData(p) {
+        const savedLabor = valFloat(p.est_labor_cost) - valFloat(p.act_labor_cost);
+        const savedMgmt = valFloat(p.est_mgmt_cost) - valFloat(p.act_mgmt_cost);
+        const savedDays = Math.max(0, valFloat(p.est_days) - valFloat(p.act_days));
+
+        document.getElementById('val_saved_labor').innerText = `$${savedLabor.toLocaleString()}`;
+        document.getElementById('val_saved_mgmt').innerText = `$${savedMgmt.toLocaleString()}`;
+        document.getElementById('val_saved_days').innerText = `${savedDays} 天`;
+        
+        updateChart(charts.labor, [valFloat(p.est_labor_cost), valFloat(p.act_labor_cost)]);
+        updateChart(charts.mgmt, [valFloat(p.est_mgmt_cost), valFloat(p.act_mgmt_cost)]);
+        updateChart(charts.days, [valFloat(p.est_days), valFloat(p.act_days)]);
+        
+        let lRate = 0; if(valFloat(p.est_labor_cost)!=0) lRate = (savedLabor/valFloat(p.est_labor_cost))*100;
+        let pRate = 0; if(valFloat(p.plan_costs)!=0) pRate = ((valFloat(p.plan_costs)-valFloat(p.act_costs))/valFloat(p.plan_costs))*100;
+        
+        updatePie(charts.mgmtRate, lRate); document.getElementById('center_mgmt_rate').innerText = `${Math.round(lRate)}%`;
+        updatePie(charts.profitRate, pRate); document.getElementById('center_profit_rate').innerText = `${Math.round(pRate)}%`;
+
+        setProg('bar_carbon', 'txt_carbon', p.act_carbon_save, p.est_carbon_save);
+        setProg('bar_elec', 'txt_elec', p.act_elec_save, p.est_elec_save);
+        setProg('bar_elec_bill', 'txt_elec_bill', p.act_elec_bill_save, p.est_elec_bill_save);
+        setProg('bar_water', 'txt_water', p.act_water_save, p.est_water_save);
+        
+        document.getElementById('txt_total_credit_val').innerText = `$${valFloat(p.act_carbon_price).toLocaleString()}`;
+        setProg('bar_credit_amt', 'txt_credit_amt', p.act_carbon_credit, p.est_carbon_credit);
+        setProg('bar_credit_price', 'txt_credit_price', p.act_carbon_price, p.est_carbon_value);
+    }
+
+    function createCharts() {
+        const opts = { responsive: true, maintainAspectRatio: false, plugins: { legend: {display:false}, datalabels: { anchor:'end', align:'top', font:{weight:'bold', size:11}, color: '#64748b', formatter:(v)=>Math.round(v).toLocaleString() } }, scales:{y:{beginAtZero:true, grid:{display:false}, ticks:{font:{size:10}}}} };
+        const ctx = (id) => document.getElementById(id).getContext('2d');
+        
+        charts.labor = new Chart(ctx('laborChart'), { type: 'bar', data: { labels: ['預估', '實際'], datasets: [{ data:[0,0], backgroundColor:[deltaLight, deltaBlue], borderRadius: 4 }] }, options: opts });
+        charts.mgmt = new Chart(ctx('mgmtChart'), { type: 'bar', data: { labels: ['預估', '實際'], datasets: [{ data:[0,0], backgroundColor:[deltaLight, '#06b6d4'], borderRadius: 4 }] }, options: opts });
+        charts.days = new Chart(ctx('daysChart'), { type: 'bar', data: { labels: ['預估', '實際'], datasets: [{ data:[0,0], backgroundColor:['#fcd34d', '#f59e0b'], borderRadius: 4 }] }, options: opts });
+        
+        const pieOpts = { cutout: '75%', plugins: { legend:{display:false}, datalabels:{display:false} } };
+        charts.mgmtRate = new Chart(ctx('mgmtRateChart'), { type: 'doughnut', data: { labels: ['優化', '剩餘'], datasets: [{ data:[0,100], backgroundColor:[deltaBlue, '#E6F4FD'], borderWidth:0 }] }, options: pieOpts });
+        charts.profitRate = new Chart(ctx('profitRateChart'), { type: 'doughnut', data: { labels: ['優化', '剩餘'], datasets: [{ data:[0,100], backgroundColor:['#ef4444', '#FFE5E5'], borderWidth:0 }] }, options: pieOpts });
+    }
+
+    function updateChart(c, d) { c.data.datasets[0].data = d; c.update(); }
+    function updatePie(c, r) { r=Math.max(0,Math.min(100,r)); c.data.datasets[0].data = [r, 100-r]; c.update(); }
+    function setProg(bid, tid, act, est) {
+        let a=valFloat(act), e=valFloat(est)||1, pct=(a/e)*100;
+        document.getElementById(bid).style.width = `${Math.min(100, pct)}%`; document.getElementById(tid).innerText = `${a.toLocaleString()} / ${e.toLocaleString()}`;
+    }
+
+    init();
+</script>
+</body>
+</html>

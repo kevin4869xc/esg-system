@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>專案資料輸入系統</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f4f6f9; padding: 20px; }
+        .section-card { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h5 { border-bottom: 2px solid #0d6efd; padding-bottom: 10px; margin-bottom: 20px; color: #0d6efd; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2 class="mb-4 text-center">📝 新增專案績效資料</h2>
+    <form id="projectForm">
+        
+        <div class="section-card">
+            <h5>1. Project Definition (專案定義)</h5>
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Project ID</label>
+                    <input type="text" class="form-control" id="project_id" value="DSEBDTW2400001">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">年度 (Year)</label>
+                    <input type="number" class="form-control" id="year" value="2024">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">專案名稱 (Name)</label>
+                    <input type="text" class="form-control" id="name" value="大幫小_節能系統">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">案件類型</label>
+                    <select class="form-select" id="type">
+                        <option value="設備交付-儲能">設備交付-儲能</option>
+                        <option value="設備交付-其他">設備交付-其他</option>
+                        <option value="節能改善" selected>節能改善</option>
+                        <option value="節水">節水</option>
+                        <option value="顧問-ISO14064">顧問-ISO14064</option>
+                        <option value="顧問-ISO14067">顧問-ISO14067</option>
+                        <option value="顧問-ISO50001">顧問-ISO50001</option>
+                        <option value="顧問-其他">顧問-其他</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-card">
+            <h5>2. 執行績效 (成本面)</h5>
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">預估人力成本 ($)</label>
+                    <input type="number" class="form-control" id="labor_cost_est" value="242450">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">實際人力成本 ($)</label>
+                    <input type="number" class="form-control" id="labor_cost_act" value="118614">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">預估管理成本 ($)</label>
+                    <input type="number" class="form-control" id="mgmt_cost_est" value="113000">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">實際管理成本 ($)</label>
+                    <input type="number" class="form-control" id="mgmt_cost_act" value="53085">
+                </div>
+            </div>
+        </div>
+
+        <div class="section-card">
+            <h5>3. 環境貢獻 & 碳權</h5>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">預估節電量 (kWh/yr)</label>
+                    <input type="number" class="form-control" id="elec_save_est" value="1454269">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">碳權額度 (噸)</label>
+                    <input type="number" class="form-control" id="carbon_credit_amt" value="228">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">碳權現價 (NTD)</label>
+                    <input type="number" class="form-control" id="carbon_credit_price" value="3000">
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center">
+            <button type="button" class="btn btn-primary btn-lg" onclick="submitData()">送出並計算</button>
+            <a href="dashboard.html" class="btn btn-secondary btn-lg">前往報表頁面</a>
+        </div>
+    </form>
+</div>
+
+<script>
+    async function submitData() {
+        // 1. 收集表單數據
+        const data = {
+            project_id: document.getElementById('project_id').value,
+            year: parseInt(document.getElementById('year').value),
+            name: document.getElementById('name').value,
+            type: document.getElementById('type').value,
+            labor_cost_est: parseFloat(document.getElementById('labor_cost_est').value) || 0,
+            labor_cost_act: parseFloat(document.getElementById('labor_cost_act').value) || 0,
+            mgmt_cost_est: parseFloat(document.getElementById('mgmt_cost_est').value) || 0,
+            mgmt_cost_act: parseFloat(document.getElementById('mgmt_cost_act').value) || 0,
+            elec_save_est: parseFloat(document.getElementById('elec_save_est').value) || 0,
+            carbon_credit_amt: parseFloat(document.getElementById('carbon_credit_amt').value) || 0,
+            carbon_credit_price: parseFloat(document.getElementById('carbon_credit_price').value) || 0
+        };
+
+        // 2. 發送到後端 API
+        try {
+            const response = await fetch('http://127.0.0.1:8000/submit_project', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            if (response.ok) {
+                alert('✅ 資料儲存成功！後端已完成自動計算。');
+            } else {
+                alert('❌ 發生錯誤');
+            }
+        } catch (error) {
+            console.error(error);
+            alert('無法連接到後端，請確認 main.py 是否有執行。');
+        }
+    }
+</script>
+</body>
+</html>

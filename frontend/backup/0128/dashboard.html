@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>專案績效儀表板</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <style>
+        body { background-color: #f4f6f9; padding: 20px; }
+        .card { margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border: none; }
+        .card-header { background-color: white; border-bottom: 2px solid #f0f0f0; font-weight: bold; color: #555; }
+        .metric-value { font-size: 1.5rem; font-weight: bold; color: #28a745; }
+        .progress-label { display: flex; justify-content: space-between; margin-bottom: 5px; font-weight: 500; }
+        .progress { height: 25px; margin-bottom: 15px; border-radius: 12px; }
+        
+        .total-mode-badge {
+            background-color: #ffc107; color: #333; padding: 5px 10px; border-radius: 20px; font-size: 0.8rem; vertical-align: middle; display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="d-flex align-items-center gap-2">
+            <h2>📊 專案績效可視化儀表板</h2>
+            <span id="totalBadge" class="total-mode-badge">🏆 年度總覽模式</span>
+        </div>
+        
+        <div class="d-flex gap-2 align-items-center">
+            <span class="fw-bold text-muted">篩選:</span>
+            
+            <select id="yearSelector" class="form-select" style="width: 150px;" onchange="filterProjectsByYear()">
+                <option value="ALL">📅 所有年份</option>
+                </select>
+
+            <select id="projectSelector" class="form-select" style="width: 350px;" onchange="updateDashboard()">
+                </select>
+            
+            <a href="excel_view.html" class="btn btn-outline-primary">✏️ 回到編輯表格</a>
+        </div>
+    </div>
+
+    <h4 class="mb-3 text-primary border-bottom pb-2">壹、執行績效</h4>
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card p-3 h-100">
+                <div class="card-header">一、人力成本分析</div>
+                <div class="card-body">
+                    <canvas id="laborChart"></canvas>
+                    <div class="mt-3 text-center">
+                        <small class="text-muted">總節省人力成本</small>
+                        <div class="metric-value" id="val_saved_labor">$0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card p-3 h-100">
+                <div class="card-header">二、管理成本分析</div>
+                <div class="card-body">
+                    <canvas id="mgmtChart"></canvas>
+                    <div class="mt-3 text-center">
+                        <small class="text-muted">總節省管理成本</small>
+                        <div class="metric-value" id="val_saved_mgmt">$0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card p-3 h-100">
+                <div class="card-header">三、施作工期分析</div>
+                <div class="card-body">
+                    <canvas id="daysChart"></canvas>
+                    <div class="mt-3 text-center">
+                        <small class="text-muted">累計提前完工日數</small>
+                        <div class="metric-value" id="val_saved_days">0 天</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-3">
+        <div class="col-md-6">
+            <div class="card p-3">
+                <div class="card-header">四、整體管理費用率優化</div>
+                <div class="card-body d-flex justify-content-center">
+                    <div style="width: 250px;">
+                        <canvas id="mgmtRateChart"></canvas>
+                    </div>
+                </div>
+                <div class="text-center mt-2 text-muted small">
+                    計算公式：總節省人力 / 總預估人力
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card p-3">
+                <div class="card-header">五、整體利潤率優化</div>
+                <div class="card-body d-flex justify-content-center">
+                    <div style="width: 250px;">
+                        <canvas id="profitRateChart"></canvas>
+                    </div>
+                </div>
+                <div class="text-center mt-2 text-muted small">
+                    計算公式：(總Plan - 總Act) / 總Plan
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h4 class="mb-3 mt-4 text-success border-bottom pb-2">貳、環境貢獻與碳權績效</h4>
+    <div class="row">
+        <div class="col-12">
+            <div class="card p-4">
+                
+                <div class="progress-label">
+                    <span>🌍 總減碳量 (Ton CO2e)</span>
+                    <span id="txt_carbon">0 / 0</span>
+                </div>
+                <div class="progress">
+                    <div id="bar_carbon" class="progress-bar bg-success" role="progressbar" style="width: 0%"></div>
+                </div>
+
+                <div class="progress-label">
+                    <span>⚡ 總節電量 (kWh)</span>
+                    <span id="txt_elec">0 / 0</span>
+                </div>
+                <div class="progress">
+                    <div id="bar_elec" class="progress-bar bg-warning text-dark" role="progressbar" style="width: 0%"></div>
+                </div>
+
+                <div class="progress-label">
+                    <span>💰 總節省電費 (NTD)</span>
+                    <span id="txt_elec_bill">0 / 0</span>
+                </div>
+                <div class="progress">
+                    <div id="bar_elec_bill" class="progress-bar bg-info text-dark" role="progressbar" style="width: 0%"></div>
+                </div>
+
+                <div class="progress-label">
+                    <span>💧 總節水量 (Ton)</span>
+                    <span id="txt_water">0 / 0</span>
+                </div>
+                <div class="progress">
+                    <div id="bar_water" class="progress-bar bg-primary" role="progressbar" style="width: 0%"></div>
+                </div>
+
+                <hr>
+
+                <div class="progress-label">
+                    <span>📜 總碳權額度 (Ton)</span>
+                    <span id="txt_credit_amt">0 / 0</span>
+                </div>
+                <div class="progress">
+                    <div id="bar_credit_amt" class="progress-bar bg-secondary" role="progressbar" style="width: 0%"></div>
+                </div>
+
+                <div class="progress-label">
+                    <span>💎 總碳權價值 (NTD)</span>
+                    <span id="txt_credit_price">0 / 0</span>
+                </div>
+                <div class="progress">
+                    <div id="bar_credit_price" class="progress-bar bg-danger" role="progressbar" style="width: 0%"></div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    Chart.register(ChartDataLabels);
+
+    let allProjects = [];      // 存放所有從後端抓來的資料
+    let currentProjects = [];  // 存放目前「年份篩選後」的資料
+    let charts = {}; 
+
+    // 初始化
+    async function init() {
+        try {
+            const response = await fetch('http://127.0.0.1:8000/get_projects');
+            allProjects = await response.json();
+            
+            // 1. 初始化年份選單
+            initYearSelector();
+            
+            // 2. 建立圖表實例
+            createCharts();
+            
+            // 3. 預設顯示所有年份的總績效
+            filterProjectsByYear();
+
+        } catch (error) {
+            console.error("無法連線到後端", error);
+        }
+    }
+
+    // --- 新增功能：初始化年份選單 ---
+    function initYearSelector() {
+        const yearSet = new Set();
+        allProjects.forEach(p => {
+            if(p.year) yearSet.add(p.year);
+        });
+
+        // 將年份排序 (由大到小，例如 2025, 2024...)
+        const sortedYears = Array.from(yearSet).sort((a, b) => b - a);
+
+        const yearSelector = document.getElementById('yearSelector');
+        sortedYears.forEach(year => {
+            const opt = document.createElement('option');
+            opt.value = year;
+            opt.text = `${year} 年`;
+            yearSelector.add(opt);
+        });
+    }
+
+    // --- 新增功能：當年份改變時，篩選專案列表 ---
+    function filterProjectsByYear() {
+        const selectedYear = document.getElementById('yearSelector').value;
+        const projectSelector = document.getElementById('projectSelector');
+        
+        // 1. 篩選資料
+        if (selectedYear === "ALL") {
+            currentProjects = allProjects;
+        } else {
+            currentProjects = allProjects.filter(p => p.year == selectedYear);
+        }
+
+        // 2. 重建專案選單
+        projectSelector.innerHTML = '';
+        
+        // 加入 "總績效" 選項
+        const totalOpt = document.createElement('option');
+        totalOpt.value = "TOTAL";
+        if (selectedYear === "ALL") {
+            totalOpt.text = "🏆 所有年份總績效";
+        } else {
+            totalOpt.text = `🏆 ${selectedYear} 年度總績效`;
+        }
+        projectSelector.add(totalOpt);
+
+        // 加入 "個別專案" 選項
+        currentProjects.forEach((p, index) => {
+            const opt = document.createElement('option');
+            opt.value = index; // 這裡的 index 是對應 currentProjects 的索引
+            opt.text = `${p.project_name} (${p.project_def})`;
+            projectSelector.add(opt);
+        });
+
+        // 3. 更新儀表板 (預設選中總績效)
+        updateDashboard();
+    }
+
+    // 更新 Dashboard 核心邏輯
+    function updateDashboard() {
+        const selector = document.getElementById('projectSelector');
+        const selectedValue = selector.value; // "TOTAL" 或 index
+        const badge = document.getElementById('totalBadge');
+        const yearText = document.getElementById('yearSelector').options[document.getElementById('yearSelector').selectedIndex].text;
+        
+        let p = {}; 
+
+        if (selectedValue === "TOTAL") {
+            // --- 加總模式 ---
+            badge.style.display = 'inline-block';
+            badge.innerText = `🏆 ${yearText} 總覽模式`; // 動態改變標籤文字
+            p = calculateTotal(currentProjects); // 只加總目前篩選出的年份
+        } else {
+            // --- 單一專案模式 ---
+            badge.style.display = 'none';
+            p = currentProjects[selectedValue]; // 抓取 currentProjects 裡的資料
+            
+            // 補算天數
+            p.act_days = calcDays(p.start_date, p.act_end_date);
+            p.est_days = calcDays(p.start_date, p.est_end_date);
+        }
+
+        renderData(p);
+    }
+
+    // 建立圖表 (樣式設定)
+    function createCharts() {
+        const commonOptions = {
+            responsive: true,
+            plugins: {
+                legend: { position: 'bottom' },
+                datalabels: {
+                    anchor: 'end', align: 'top', font: { weight: 'bold' },
+                    formatter: (value) => Math.round(value).toLocaleString()
+                }
+            },
+            scales: { y: { beginAtZero: true } }
+        };
+
+        charts.labor = new Chart(document.getElementById('laborChart'), {
+            type: 'bar',
+            data: { labels: ['預估人力', '實際人力'], datasets: [{ label: '金額 ($)', data: [0, 0], backgroundColor: ['#6c757d', '#007bff'] }] },
+            options: commonOptions
+        });
+
+        charts.mgmt = new Chart(document.getElementById('mgmtChart'), {
+            type: 'bar',
+            data: { labels: ['預估管理', '實際管理'], datasets: [{ label: '金額 ($)', data: [0, 0], backgroundColor: ['#6c757d', '#17a2b8'] }] },
+            options: commonOptions
+        });
+
+        charts.days = new Chart(document.getElementById('daysChart'), {
+            type: 'bar',
+            data: { labels: ['預估日數', '實際日數'], datasets: [{ label: '天數', data: [0, 0], backgroundColor: ['#ffc107', '#28a745'] }] },
+            options: commonOptions
+        });
+
+        charts.mgmtRate = new Chart(document.getElementById('mgmtRateChart'), {
+            type: 'doughnut',
+            data: { labels: ['優化比例', '其他'], datasets: [{ data: [0, 100], backgroundColor: ['#28a745', '#e9ecef'] }] },
+            options: { plugins: { datalabels: { display: false } } }
+        });
+
+        charts.profitRate = new Chart(document.getElementById('profitRateChart'), {
+            type: 'doughnut',
+            data: { labels: ['優化比例', '其他'], datasets: [{ data: [0, 100], backgroundColor: ['#dc3545', '#e9ecef'] }] },
+            options: { plugins: { datalabels: { display: false } } }
+        });
+    }
+
+    // 輔助：加總邏輯
+    function calculateTotal(projects) {
+        let total = {
+            est_labor_cost: 0, act_labor_cost: 0,
+            est_mgmt_cost: 0, act_mgmt_cost: 0,
+            est_days: 0, act_days: 0,
+            plan_costs: 0, act_costs: 0,
+            est_carbon_save: 0, act_carbon_save: 0,
+            est_elec_save: 0, act_elec_save: 0,
+            est_elec_bill_save: 0, act_elec_bill_save: 0,
+            est_water_save: 0, act_water_save: 0,
+            est_carbon_credit: 0, act_carbon_credit: 0,
+            est_carbon_value: 0, act_carbon_price: 0
+        };
+
+        const val = (v) => parseFloat(v) || 0;
+
+        projects.forEach(proj => {
+            total.est_labor_cost += val(proj.est_labor_cost);
+            total.act_labor_cost += val(proj.act_labor_cost);
+            total.est_mgmt_cost += val(proj.est_mgmt_cost);
+            total.act_mgmt_cost += val(proj.act_mgmt_cost);
+            
+            total.est_days += calcDays(proj.start_date, proj.est_end_date);
+            total.act_days += calcDays(proj.start_date, proj.act_end_date);
+
+            total.plan_costs += val(proj.plan_costs);
+            total.act_costs += val(proj.act_costs);
+
+            total.est_carbon_save += val(proj.est_carbon_save);
+            total.act_carbon_save += val(proj.act_carbon_save);
+            total.est_elec_save += val(proj.est_elec_save);
+            total.act_elec_save += val(proj.act_elec_save);
+            total.est_elec_bill_save += val(proj.est_elec_bill_save);
+            total.act_elec_bill_save += val(proj.act_elec_bill_save);
+            total.est_water_save += val(proj.est_water_save);
+            total.act_water_save += val(proj.act_water_save);
+            
+            total.est_carbon_credit += val(proj.est_carbon_credit);
+            total.act_carbon_credit += val(proj.act_carbon_credit);
+            total.est_carbon_value += val(proj.est_carbon_value);
+            total.act_carbon_price += val(proj.act_carbon_price);
+        });
+
+        return total;
+    }
+
+    // 輔助：算天數
+    function calcDays(start, end) {
+        if (!start || !end) return 0;
+        const d1 = new Date(start);
+        const d2 = new Date(end);
+        if (isNaN(d1) || isNaN(d2)) return 0;
+        return (d2 - d1) / (1000 * 60 * 60 * 24);
+    }
+
+    // 渲染資料
+    function renderData(p) {
+        const val = (v) => parseFloat(v) || 0;
+
+        const savedLabor = val(p.est_labor_cost) - val(p.act_labor_cost);
+        const savedMgmt = val(p.est_mgmt_cost) - val(p.act_mgmt_cost);
+        const savedDays = val(p.est_days) - val(p.act_days);
+
+        // 文字
+        document.getElementById('val_saved_labor').innerText = `$${savedLabor.toLocaleString()}`;
+        document.getElementById('val_saved_mgmt').innerText = `$${savedMgmt.toLocaleString()}`;
+        document.getElementById('val_saved_days').innerText = `${Math.max(0, savedDays)} 天`;
+
+        // 柱狀圖
+        updateChart(charts.labor, [val(p.est_labor_cost), val(p.act_labor_cost)]);
+        updateChart(charts.mgmt, [val(p.est_mgmt_cost), val(p.act_mgmt_cost)]);
+        updateChart(charts.days, [val(p.est_days), val(p.act_days)]);
+
+        // 圓餅圖
+        let laborOptRate = 0;
+        if (val(p.est_labor_cost) !== 0) laborOptRate = (savedLabor / val(p.est_labor_cost)) * 100;
+        updatePie(charts.mgmtRate, laborOptRate);
+
+        let profitOptRate = 0;
+        if (val(p.plan_costs) !== 0) profitOptRate = ((val(p.plan_costs) - val(p.act_costs)) / val(p.plan_costs)) * 100;
+        updatePie(charts.profitRate, profitOptRate);
+
+        // 進度條
+        setProgressBar('bar_carbon', 'txt_carbon', p.act_carbon_save, p.est_carbon_save, 'Ton');
+        setProgressBar('bar_elec', 'txt_elec', p.act_elec_save, p.est_elec_save, 'kWh');
+        setProgressBar('bar_elec_bill', 'txt_elec_bill', p.act_elec_bill_save, p.est_elec_bill_save, 'NTD');
+        setProgressBar('bar_water', 'txt_water', p.act_water_save, p.est_water_save, 'Ton');
+        setProgressBar('bar_credit_amt', 'txt_credit_amt', p.act_carbon_credit, p.est_carbon_credit, 'Ton');
+        setProgressBar('bar_credit_price', 'txt_credit_price', p.act_carbon_price, p.est_carbon_value, 'NTD');
+    }
+
+    function updateChart(chart, newData) {
+        chart.data.datasets[0].data = newData;
+        chart.update();
+    }
+
+    function updatePie(chart, rate) {
+        let r = parseFloat(rate) || 0;
+        if (r < 0) r = 0;
+        if (r > 100) r = 100;
+        chart.data.datasets[0].data = [r, 100 - r];
+        chart.update();
+    }
+
+    function setProgressBar(barId, txtId, act, est, unit) {
+        const a = parseFloat(act) || 0;
+        const e = parseFloat(est) || 1;
+        let pct = (a / e) * 100;
+        if (pct > 100) pct = 100;
+
+        document.getElementById(barId).style.width = `${pct}%`;
+        document.getElementById(txtId).innerText = `實際: ${a.toLocaleString()} / 預估: ${e.toLocaleString()} (${unit})`;
+    }
+
+    // 啟動
+    init();
+
+</script>
+</body>
+</html>

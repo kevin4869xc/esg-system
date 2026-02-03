@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>專案績效 - Excel 編輯模式</title>
+    <link href="https://unpkg.com/tabulator-tables@5.5.0/dist/css/tabulator_bootstrap5.min.css" rel="stylesheet">
+    <script type="text/javascript" src="https://unpkg.com/tabulator-tables@5.5.0/dist/js/tabulator.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <style>
+        body { padding: 20px; background-color: #f8f9fa; }
+        #data-table { 
+            margin-top: 15px; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            background-color: white;
+            border-radius: 5px;
+        }
+        /* 讓有提示的標題滑鼠變成問號游標 */
+        .tabulator-col-title {
+            cursor: help;
+        }
+        .btn-toolbar { margin-bottom: 15px; }
+        
+        /* 自動計算欄位的背景色提示 */
+        .calc-col { background-color: #e9ecef !important; color: #495057; font-weight: bold; }
+        
+        /* 調整 Tabulator 樣式 */
+        .tabulator .tabulator-header {
+            font-weight: bold;
+            background-color: #f1f3f5;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center">
+        <h3>📊 專案績效總表 (Excel 模式)</h3>
+        <div>
+            <button class="btn btn-success" onclick="addNewRow()">➕ 新增一列</button>
+            <button class="btn btn-primary" onclick="saveData()">💾 儲存所有資料</button>
+            <a href="dashboard.html" class="btn btn-outline-secondary ms-2">📈 前往儀表板</a>
+        </div>
+    </div>
+    
+    <div class="alert alert-warning mt-2 d-flex align-items-center">
+        <span class="me-2 fs-4">💡</span>
+        <ul class="mb-0 ps-3">
+            <li>將滑鼠移到有 <b>(?)</b> 的標題上方，可查看填寫說明。</li>
+            <li>灰色底的欄位為<b>自動計算</b>，請輸入相關聯的數值（如預估/實際成本），系統會自動更新。</li>
+            <li>金額欄位支援輸入千分位逗號（例如：120,000）。</li>
+        </ul>
+    </div>
+    
+    <div id="msg" class="alert alert-info mt-2" style="display:none;"></div>
+
+    <div id="data-table"></div>
+</div>
+
+<script>
+    // 案件類型清單
+    const caseTypes = [
+        "設備交付-儲能", "設備交付-其他", "節能改善", "節水",
+        "顧問-ISO14064", "顧問-ISO14067", "顧問-ISO50001", "顧問-其他"
+    ];
+
+    // --- 1. 定義欄位 (A~AE) ---
+    // 注意：金額輸入欄位改為 "input" 編輯器，以容許使用者輸入逗號
+    const tableColumns = [
+        {title:"A. Project Def", field:"project_def", editor:"input", width:150, frozen:true}, 
+        {title:"B. 年度", field:"year", editor:"number", width:80},
+        {title:"C. 專案名稱", field:"project_name", editor:"input", width:200},
+        {title:"D. 案件類型", field:"case_type", editor:"list", editorParams:{values:caseTypes}, width:150},
+        
+        // --- 日期 (輸入格式需為 YYYY-MM-DD 或 YYYY/MM/DD) ---
+        {
+            title:"E. 開工日 (?)", field:"start_date", editor:"input", 
+            headerTooltip:"依PJM Project Progress Weekly的開工日為準\n格式：YYYY-MM-DD"
+        },
+        {
+            title:"F. 實際完工 (?)", field:"act_end_date", editor:"input",
+            headerTooltip:"依PJM Project Mangement 廠商驗收進度之完成驗收日期為準"
+        },
+        {
+            title:"G. 預計完工 (?)", field:"est_end_date", editor:"input",
+            headerTooltip:"依合約之完工日為準"
+        },
+        
+        // --- 自動計算天數 (禁止編輯) ---
+        {title:"H. 實際日數 (自動)", field:"act_days", editor:false, cssClass:"calc-col"},
+        {title:"I. 預估日數 (自動)", field:"est_days", editor:false, cssClass:"calc-col"},
+        
+        // --- 成本與優化 ---
+        {
+            title:"J. 實際人力$ (?)", field:"act_labor_cost", editor:"input", 
+            headerTooltip:"以PS系統實際人力成本為準",
+            formatter:"money", formatterParams:{precision:0}
+        },
+        {
+            title:"K. 預估人力$ (?)", field:"est_labor_cost", editor:"input", 
+            headerTooltip:"依照成本收集表Internal (PS01)為準",
+            formatter:"money", formatterParams:{precision:0}
+        },
+        
+        // 自動計算
+        {title:"L. 節省人力$ (自動)", field:"saved_labor_cost", editor:false, formatter:"money", formatterParams:{precision:0}, cssClass:"calc-col text-success"}, 
+        {title:"M. 人力優化% (自動)", field:"labor_opt_rate", editor:false, formatter:"money", formatterParams:{symbol:"%", precision:2}, cssClass:"calc-col"},
+        
+        {
+            title:"N. 預估管理$ (?)", field:"est_mgmt_cost", editor:"input",
+            headerTooltip:"依PS系統之CJE0為準，需自行加總Plan costs 的Travelling/Insurance",
+            formatter:"money", formatterParams:{precision:0}
+        },
+        {
+            title:"O. 實際管理$ (?)", field:"act_mgmt_cost", editor:"input",
+            headerTooltip:"依PS系統之CJE0為準，需自行加總Act.costs 的Travelling/Insurance",
+            formatter:"money", formatterParams:{precision:0}
+        },
+        
+        // 自動計算 (預估管理 - 實際管理)
+        {title:"P. 節省管理$ (自動)", field:"saved_mgmt_cost", editor:false, formatter:"money", formatterParams:{precision:0}, cssClass:"calc-col text-success"},
+        
+        {
+            title:"Q. Plan costs (?)", field:"plan_costs", editor:"input", 
+            headerTooltip:"依PS系統之CJE0為準",
+            formatter:"money", formatterParams:{precision:0}
+        },
+        {
+            title:"R. Act. costs (?)", field:"act_costs", editor:"input", 
+            headerTooltip:"依PS系統之CJE0為準",
+            formatter:"money", formatterParams:{precision:0}
+        },
+        
+        // 自動計算 ((Plan - Act) / Plan)
+        {title:"S. 利潤優化% (自動)", field:"profit_opt_rate", editor:false, formatter:"money", formatterParams:{symbol:"%", precision:2}, cssClass:"calc-col"},
+        
+        // --- 環境 ---
+        {
+            title:"T. 預估減碳 (?)", field:"est_carbon_save", editor:"number",
+            headerTooltip:"1.依專案個別計算 (量測驗證/銘牌效率)\n2.依節電量*電力碳排係數"
+        },
+        {
+            title:"U. 預估節電 (?)", field:"est_elec_save", editor:"number",
+            headerTooltip:"依專案個別計算 (量測驗證/銘牌效率)"
+        },
+        {
+            title:"V. 預估電費省 (?)", field:"est_elec_bill_save", editor:"number",
+            headerTooltip:"1.依計劃書紀載之電費*節電量(kWh/yr)\n2.依電費單之電費*節電量(kWh/yr)"
+        },
+        
+        {
+            title:"W. 實際減碳 (?)", field:"act_carbon_save", editor:"number",
+            headerTooltip:"1.依專案個別計算 (量測驗證/銘牌效率)\n2.依節電量*電力碳排係數"
+        },
+        {
+            title:"X. 實際節電 (?)", field:"act_elec_save", editor:"number",
+            headerTooltip:"依專案個別計算 (量測驗證/銘牌效率)"
+        },
+        {
+            title:"Y. 實際電費省 (?)", field:"act_elec_bill_save", editor:"number",
+            headerTooltip:"1.依計劃書紀載之電費*節電量(kWh/yr)\n2.依電費單之電費*節電量(kWh/yr)"
+        },
+        
+        {
+            title:"Z. 預估節水 (?)", field:"est_water_save", editor:"number",
+            headerTooltip:"依專案個別計算"
+        },
+        {
+            title:"AA. 實際節水 (?)", field:"act_water_save", editor:"number",
+            headerTooltip:"依專案個別計算"
+        },
+        
+        // --- 碳權 ---
+        {
+            title:"AB. 預估碳權額 (?)", field:"est_carbon_credit", editor:"number",
+            headerTooltip:"依核可額度填寫"
+        },
+        {
+            title:"AC. 實際碳權額 (?)", field:"act_carbon_credit", editor:"number",
+            headerTooltip:"依核可額度填寫"
+        },
+        {
+            title:"AD. 預估碳權價 (?)", field:"est_carbon_value", editor:"number",
+            headerTooltip:"依平台單價*核可額度計算"
+        },
+        {
+            title:"AE. 實際碳權價 (?)", field:"act_carbon_price", editor:"number",
+            headerTooltip:"依平台單價*核可額度計算"
+        }
+    ];
+
+    // --- 2. 核心運算邏輯 (增強版) ---
+    function recalcRow(rowData) {
+        // ★ 轉數字函式：移除逗號並轉為 Float
+        const val = (v) => {
+            if (!v) return 0;
+            let cleanStr = String(v).replace(/,/g, '').trim();
+            return parseFloat(cleanStr) || 0;
+        };
+        
+        // ★ 日期計算函式：相容 / 或 -
+        const calcDays = (start, end) => {
+            if (!start || !end) return 0;
+            // 嘗試解析日期，如果失敗則替換格式
+            let d1 = new Date(start);
+            let d2 = new Date(end);
+            
+            if (isNaN(d1.getTime())) d1 = new Date(String(start).replace(/\//g, '-'));
+            if (isNaN(d2.getTime())) d2 = new Date(String(end).replace(/\//g, '-'));
+
+            if (isNaN(d1.getTime()) || isNaN(d2.getTime())) return 0;
+            
+            let diffTime = d2 - d1;
+            return Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+        };
+
+        // === 公式運算 ===
+
+        // H. 實際施作日數 = F - E
+        rowData.act_days = calcDays(rowData.start_date, rowData.act_end_date);
+
+        // I. 預估施作日數 = G - E
+        rowData.est_days = calcDays(rowData.start_date, rowData.est_end_date);
+
+        // L. 節省人力成本 = K(預估) - J(實際)
+        rowData.saved_labor_cost = val(rowData.est_labor_cost) - val(rowData.act_labor_cost);
+
+        // M. 管理費用率優化 = (L / K)
+        if (val(rowData.est_labor_cost) !== 0) {
+            rowData.labor_opt_rate = (val(rowData.saved_labor_cost) / val(rowData.est_labor_cost)) * 100;
+        } else {
+            rowData.labor_opt_rate = 0;
+        }
+
+        // P. 節省管理成本 = N(預估) - O(實際)
+        rowData.saved_mgmt_cost = val(rowData.est_mgmt_cost) - val(rowData.act_mgmt_cost);
+
+        // S. 利潤率優化 = (Plan(Q) - Act(R)) / Plan(Q)
+        if (val(rowData.plan_costs) !== 0) {
+            rowData.profit_opt_rate = ((val(rowData.plan_costs) - val(rowData.act_costs)) / val(rowData.plan_costs)) * 100;
+        } else {
+            rowData.profit_opt_rate = 0;
+        }
+
+        return rowData;
+    }
+
+    // --- 3. 初始化表格 ---
+    var table = new Tabulator("#data-table", {
+        height: "650px", 
+        layout: "fitData", 
+        columns: tableColumns,
+        reactiveData: true, 
+        data: [],
+        
+        // 監聽：當使用者編輯任何一格時，觸發重算
+        cellEdited: function(cell) {
+            var row = cell.getRow();
+            var rowData = row.getData();
+            var newData = recalcRow(rowData);
+            row.update(newData);
+        }
+    });
+
+    // 載入資料
+    async function loadData() {
+        const msgDiv = document.getElementById('msg');
+        try {
+            const response = await fetch('http://127.0.0.1:8000/get_projects');
+            if (!response.ok) throw new Error("後端回應錯誤");
+            
+            const data = await response.json();
+            
+            // ★ 強制運算：載入時對每筆資料執行 recalcRow，確保計算欄位有值
+            const calculatedData = data.map(item => recalcRow(item));
+            
+            table.setData(calculatedData);
+        } catch (error) {
+            console.error("載入失敗", error);
+            msgDiv.className = 'alert alert-danger';
+            msgDiv.innerText = "❌ 無法載入資料，請確認後端伺服器 (main.py) 是否已啟動。";
+            msgDiv.style.display = 'block';
+        }
+    }
+
+    // 新增一列
+    function addNewRow() {
+        const today = new Date().toISOString().split('T')[0];
+        table.addRow({ 
+            year: 2024, 
+            case_type: "節能改善",
+            start_date: today,
+            act_labor_cost: 0,
+            est_labor_cost: 0,
+            plan_costs: 0,
+            est_mgmt_cost: 0,
+            act_mgmt_cost: 0
+        }); 
+        // 捲動到底部
+        setTimeout(() => table.scrollToRow(table.getRows()[table.getRows().length - 1], "bottom", true), 100);
+    }
+
+    // 儲存資料
+    async function saveData() {
+        const rows = table.getRows();
+        // 儲存前確保資料都是經過運算的最新狀態
+        const tableData = rows.map(row => recalcRow(row.getData()));
+
+        const msgDiv = document.getElementById('msg');
+        msgDiv.style.display = 'block';
+        msgDiv.className = 'alert alert-info';
+        msgDiv.innerText = '儲存中...';
+
+        try {
+            const response = await fetch('http://127.0.0.1:8000/save_all', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(tableData)
+            });
+
+            if (response.ok) {
+                msgDiv.className = 'alert alert-success';
+                msgDiv.innerText = '✅ 所有資料已成功儲存！';
+                setTimeout(() => { msgDiv.style.display = 'none'; }, 2000);
+            } else {
+                throw new Error('儲存失敗');
+            }
+        } catch (error) {
+            msgDiv.className = 'alert alert-danger';
+            msgDiv.innerText = '❌ 儲存失敗，請確認後端已開啟';
+        }
+    }
+
+    // 啟動時載入
+    loadData();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>專案績效數據中心 | Delta Energy</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://unpkg.com/tabulator-tables@5.5.0/dist/css/tabulator_bootstrap5.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <style>
+        :root {
+            --delta-blue: #00A0E9;
+            --delta-blue-dark: #008DCB;
+            --delta-text: #334155;
+            --bg-color: #F5F9FC;
+            --card-shadow: 0 4px 12px rgba(0, 160, 233, 0.1);
+        }
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: var(--bg-color);
+            padding: 30px;
+            color: var(--delta-text);
+        }
+
+        .header-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            background: white;
+            padding: 15px 30px;
+            border-radius: 12px;
+            box-shadow: var(--card-shadow);
+            border-top: 4px solid var(--delta-blue);
+        }
+
+        .logo-img { height: 45px; margin-right: 15px; }
+        h3 { font-weight: 700; color: var(--delta-blue); margin: 0; display: flex; align-items: center; }
+
+        .btn-custom { border-radius: 6px; padding: 8px 20px; font-weight: 500; transition: all 0.3s ease; display: inline-flex; align-items: center; gap: 6px; border: none; }
+        .btn-primary-delta { background: linear-gradient(135deg, var(--delta-blue), var(--delta-blue-dark)); color: white; }
+        .btn-primary-delta:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0, 160, 233, 0.3); color: white; }
+        .btn-outline-delta { background: white; color: var(--delta-text); border: 1px solid #cbd5e1; }
+        .btn-outline-delta:hover { background: #f1f5f9; color: var(--delta-blue); border-color: var(--delta-blue); }
+
+        .tips-box { background: #E6F4FD; border-left: 4px solid var(--delta-blue); padding: 15px; border-radius: 8px; margin-bottom: 20px; color: #0c5460; }
+        .tips-box i { color: var(--delta-blue); }
+
+        #data-table { border-radius: 10px; overflow: hidden; box-shadow: var(--card-shadow); border: none; background: white; }
+
+        /* --- 表頭樣式 --- */
+        .tabulator .tabulator-header {
+            background-color: var(--delta-blue) !important;
+            border-bottom: none;
+            height: auto !important; 
+        }
+        .tabulator .tabulator-header .tabulator-col {
+            background-color: var(--delta-blue) !important;
+            height: auto !important; 
+            border-right: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .tabulator .tabulator-header .tabulator-col .tabulator-col-content {
+            height: 100% !important;         
+            padding: 8px 4px !important;     
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: center !important; 
+            align-items: center !important;     
+        }
+        .tabulator-col-title {
+            color: #ffffff !important;
+            font-weight: 600;
+            font-size: 0.9rem;
+            white-space: normal !important; 
+            line-height: 1.3 !important;    
+            text-align: center;             
+            display: block;
+            width: 100%;
+        }
+
+        .bi-question-circle-fill { color: rgba(255,255,255,0.8) !important; cursor: help; margin-left: 4px; vertical-align: baseline; font-size: 0.85em; }
+        
+        .tabulator-row { border-bottom: 1px solid #f1f5f9; min-height: 45px; }
+        .tabulator-row:hover { background-color: #E6F4FD !important; }
+
+        /* 內容儲存格樣式 */
+        .tabulator-cell { 
+            padding: 12px 8px !important; 
+            display: flex; 
+            align-items: center; 
+            justify-content: flex-start;
+            font-size: 0.95rem;
+            white-space: normal !important; 
+            word-break: break-word;
+            line-height: 1.5;
+        }
+
+        .calc-col { background-color: #f8fafc !important; color: #64748b; font-weight: 600; font-style: italic; }
+        .text-success-custom { color: #008DCB !important; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container-fluid">
+    <div class="header-section">
+        <div class="d-flex align-items-center">
+            <img src="logo.png" alt="Delta Logo" class="logo-img" onerror="this.style.display='none'; document.getElementById('logo-text').style.display='block'">
+            <span id="logo-text" style="display:none; font-weight:bold; color:var(--delta-blue); margin-right:10px;">DELTA</span>
+            <h3>專案績效數據中心</h3>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn-custom btn-primary-delta" onclick="addNewRow()"><i class="bi bi-plus-lg"></i> 新增專案</button>
+            <button class="btn-custom btn-primary-delta" onclick="saveData()"><i class="bi bi-cloud-upload"></i> 儲存資料</button>
+            <a href="dashboard.html" class="btn-custom btn-outline-delta"><i class="bi bi-graph-up-arrow"></i> 檢視儀表板</a>
+        </div>
+    </div>
+    
+    <div class="tips-box d-flex align-items-center">
+        <i class="bi bi-calculator-fill fs-4 me-3"></i>
+        <div>
+            <strong>操作說明：</strong>
+            <ul class="mb-0 ps-3 small">
+                <li><b>自動千分位：</b>金額輸入時可不加逗號 (如 1000)，輸入完畢後系統會自動格式化為 (1,000)。</li>
+                <li><b>日期選擇：</b>點擊日期欄位可直接彈出日曆。</li>
+                <li><b>凍結窗格：</b>「Project Def」與「專案名稱」已固定在左側。</li>
+                <li><b>自動計算：</b>灰色底色欄位由系統自動運算。</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div id="msg" class="alert alert-info" style="display:none; position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; box-shadow: 0 5px 15px rgba(0,0,0,0.2);"></div>
+    <div id="data-table"></div>
+</div>
+
+<script type="text/javascript" src="https://unpkg.com/tabulator-tables@5.5.0/dist/js/tabulator.min.js"></script>
+<script>
+    const caseTypes = ["設備交付-儲能", "設備交付-其他", "節能改善", "節水", "顧問-ISO14064", "顧問-ISO14067", "顧問-ISO50001", "顧問-其他"];
+
+    function percentFormatter(cell) {
+        var value = parseFloat(cell.getValue()) || 0;
+        return value.toFixed(2) + "%";
+    }
+
+    // ★ 關鍵功能：數值清洗器 (Mutator)
+    // 無論使用者輸入 "1000" 還是 "1,000"，都會被轉成純數字 1000，確保格式化功能正常運作
+    var numberMutator = function(value, data, type, params, component){
+        if(!value) return 0;
+        // 移除逗號並轉為浮點數
+        var number = parseFloat(String(value).replace(/,/g, ""));
+        return isNaN(number) ? 0 : number;
+    }
+
+    const tableColumns = [
+        // --- 1. Project Def (固定) ---
+        {title:"Project Def", field:"project_def", editor:"input", width:140, frozen:true}, 
+        
+        // --- 2. 專案名稱 (固定) ---
+        {title:"專案名稱", field:"project_name", editor:"input", width:200, frozen:true}, 
+        
+        // --- 3. 年度 ---
+        {title:"年度", field:"year", editor:"number", width:80},
+        
+        {title:"案件類型", field:"case_type", editor:"list", editorParams:{values:caseTypes}, width:150},
+        
+        // --- 日期 ---
+        {
+            title:`開工日 <i class="bi bi-question-circle-fill"></i>`, 
+            field:"start_date", 
+            editor:"date", 
+            editorParams:{format:"YYYY-MM-DD"}, 
+            width:130,
+            headerTooltip:"依PJM Project Progress Weekly的開工日為準\n格式：YYYY-MM-DD", formatter:"html" 
+        },
+        {
+            title:`實際完工日 <i class="bi bi-question-circle-fill"></i>`, 
+            field:"act_end_date", 
+            editor:"date",
+            editorParams:{format:"YYYY-MM-DD"},
+            width:130,
+            headerTooltip:"依PJM驗收日期", formatter:"html"
+        },
+        {
+            title:`預計完工日 <i class="bi bi-question-circle-fill"></i>`, 
+            field:"est_end_date", 
+            editor:"date",
+            editorParams:{format:"YYYY-MM-DD"},
+            width:130,
+            headerTooltip:"依合約完工日", formatter:"html"
+        },
+        
+        {title:"實際日數", field:"act_days", editor:false, cssClass:"calc-col", width:100},
+        {title:"預估日數", field:"est_days", editor:false, cssClass:"calc-col", width:100},
+        
+        // --- 成本 (NTD) - 加上 mutator: numberMutator ---
+        { 
+            title:`實際人力成本 (NTD) <i class="bi bi-question-circle-fill"></i>`, 
+            field:"act_labor_cost", editor:"input", width:160,
+            mutator: numberMutator, // ★ 自動清洗輸入值
+            formatter:"money", formatterParams:{precision:0}, // ★ 自動加上千分位
+            headerTooltip:"以PS系統實際人力成本為準", formatter:"html" 
+        },
+        { 
+            title:`預估人力成本 (NTD) <i class="bi bi-question-circle-fill"></i>`, 
+            field:"est_labor_cost", editor:"input", width:160,
+            mutator: numberMutator,
+            formatter:"money", formatterParams:{precision:0},
+            headerTooltip:"依照成本收集表Internal (PS01)為準", formatter:"html" 
+        },
+        {
+            title:"節省人力成本 (NTD)", 
+            field:"saved_labor_cost", editor:false, width:160,
+            formatter:"money", formatterParams:{precision:0}, cssClass:"calc-col text-success-custom"
+        }, 
+        {
+            title:"人力優化", 
+            field:"labor_opt_rate", editor:false, width:100,
+            formatter: percentFormatter, cssClass:"calc-col"
+        },
+        
+        { 
+            title:`預估管理成本 (NTD) <i class="bi bi-question-circle-fill"></i>`, 
+            field:"est_mgmt_cost", editor:"input", width:160,
+            mutator: numberMutator,
+            formatter:"money", formatterParams:{precision:0},
+            headerTooltip:"需自行加總Travelling/Insurance", formatter:"html" 
+        },
+        { 
+            title:`實際管理成本 (NTD) <i class="bi bi-question-circle-fill"></i>`, 
+            field:"act_mgmt_cost", editor:"input", width:160,
+            mutator: numberMutator,
+            formatter:"money", formatterParams:{precision:0},
+            headerTooltip:"需自行加總Travelling/Insurance", formatter:"html" 
+        },
+        {
+            title:"節省管理成本 (NTD)", 
+            field:"saved_mgmt_cost", editor:false, width:160,
+            formatter:"money", formatterParams:{precision:0}, cssClass:"calc-col text-success-custom"
+        },
+        
+        { 
+            title:`Plan costs (NTD) <i class="bi bi-question-circle-fill"></i>`, 
+            field:"plan_costs", editor:"input", width:150,
+            mutator: numberMutator,
+            formatter:"money", formatterParams:{precision:0},
+            headerTooltip:"依PS系統之CJE0", formatter:"html" 
+        },
+        { 
+            title:`Act. costs (NTD) <i class="bi bi-question-circle-fill"></i>`, 
+            field:"act_costs", editor:"input", width:150,
+            mutator: numberMutator,
+            formatter:"money", formatterParams:{precision:0},
+            headerTooltip:"依PS系統之CJE0", formatter:"html" 
+        },
+        {
+            title:"利潤優化", 
+            field:"profit_opt_rate", editor:false, width:100,
+            formatter: percentFormatter, cssClass:"calc-col"
+        },
+        
+        // --- 環境與效益 ---
+        { title:`預估減碳 (公噸 CO2e/yr) <i class="bi bi-question-circle-fill"></i>`, field:"est_carbon_save", editor:"number", width:180, headerTooltip:"1.依專案個別計算\n2.依節電量*電力碳排係數", formatter:"html" },
+        { title:`預估節電 (kWh/yr) <i class="bi bi-question-circle-fill"></i>`, field:"est_elec_save", editor:"number", width:160, headerTooltip:"依專案個別計算", formatter:"html" },
+        { title:`預估節省電費 (NTD/yr) <i class="bi bi-question-circle-fill"></i>`, field:"est_elec_bill_save", editor:"number", width:180, headerTooltip:"1.依計劃書電費*節電量\n2.依電費單電費*節電量", formatter:"html" },
+        
+        { title:`實際減碳 (公噸 CO2e/yr) <i class="bi bi-question-circle-fill"></i>`, field:"act_carbon_save", editor:"number", width:180, headerTooltip:"1.依專案個別計算\n2.依節電量*電力碳排係數", formatter:"html" },
+        { title:`實際節電 (kWh/yr) <i class="bi bi-question-circle-fill"></i>`, field:"act_elec_save", editor:"number", width:160, headerTooltip:"依專案個別計算", formatter:"html" },
+        { title:`實際節省電費 (NTD/yr) <i class="bi bi-question-circle-fill"></i>`, field:"act_elec_bill_save", editor:"number", width:180, headerTooltip:"1.依計劃書電費*節電量\n2.依電費單電費*節電量", formatter:"html" },
+        
+        { title:"預估節水 (立方公尺/年)", field:"est_water_save", editor:"number", width:160 },
+        { title:"實際節水 (立方公尺/年)", field:"act_water_save", editor:"number", width:160 },
+        
+        // --- 碳權 ---
+        { title:"預估碳權額度 (公噸 CO2e/yr)", field:"est_carbon_credit", editor:"number", width:180 },
+        { title:"實際碳權額度 (公噸 CO2e/yr)", field:"act_carbon_credit", editor:"number", width:180 },
+        { title:"預估碳權價值 (NTD/yr)", field:"est_carbon_value", editor:"number", width:180 },
+        { title:"實際碳權價值 (NTD/yr)", field:"act_carbon_price", editor:"number", width:180 }
+    ];
+
+    // --- 運算邏輯 ---
+    function recalcRow(rowData) {
+        // 因為有 numberMutator，這裡取到的值已經是純數字了，可以直接使用
+        const val = (v) => parseFloat(v) || 0;
+        
+        const calcDays = (start, end) => {
+            if (!start || !end) return 0;
+            let d1 = new Date(start), d2 = new Date(end);
+            if (isNaN(d1.getTime())) d1 = new Date(String(start).replace(/\//g, '-'));
+            if (isNaN(d2.getTime())) d2 = new Date(String(end).replace(/\//g, '-'));
+            return (isNaN(d1.getTime()) || isNaN(d2.getTime())) ? 0 : Math.ceil((d2-d1)/86400000); 
+        };
+
+        rowData.act_days = calcDays(rowData.start_date, rowData.act_end_date);
+        rowData.est_days = calcDays(rowData.start_date, rowData.est_end_date);
+        
+        rowData.saved_labor_cost = val(rowData.est_labor_cost) - val(rowData.act_labor_cost);
+        rowData.labor_opt_rate = (val(rowData.est_labor_cost) !== 0) ? (val(rowData.saved_labor_cost) / val(rowData.est_labor_cost)) * 100 : 0;
+        
+        rowData.saved_mgmt_cost = val(rowData.est_mgmt_cost) - val(rowData.act_mgmt_cost);
+        
+        rowData.profit_opt_rate = (val(rowData.plan_costs) !== 0) ? ((val(rowData.plan_costs) - val(rowData.act_costs)) / val(rowData.plan_costs)) * 100 : 0;
+        
+        return rowData;
+    }
+
+    var table = new Tabulator("#data-table", {
+        height: "70vh", 
+        layout: "fitData", 
+        columns: tableColumns, 
+        reactiveData: true, 
+        data: [],
+        tooltip: true, 
+        cellEdited: function(cell) { cell.getRow().update(recalcRow(cell.getRow().getData())); }
+    });
+
+    async function loadData() {
+        try {
+            const response = await fetch('/get_projects');
+            if (response.ok) {
+                const data = await response.json();
+                table.setData(data.map(item => recalcRow(item)));
+            }
+        } catch (e) { showMsg("❌ 連線錯誤", "danger"); }
+    }
+
+    function addNewRow() {
+        table.addRow({ year: new Date().getFullYear(), case_type: "節能改善", start_date: new Date().toISOString().split('T')[0] }); 
+        setTimeout(() => table.scrollToRow(table.getRows()[table.getRows().length - 1], "bottom", true), 100);
+    }
+
+    async function saveData() {
+        showMsg("⏳ 儲存中...", "info");
+        try {
+            await fetch('/save_all', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(table.getRows().map(r=>recalcRow(r.getData()))) });
+            showMsg("✅ 儲存成功", "success");
+        } catch (e) { showMsg("❌ 儲存失敗", "danger"); }
+    }
+
+    function showMsg(text, type) {
+        const msg = document.getElementById('msg');
+        msg.innerHTML = text; msg.className = `alert alert-${type} shadow`; msg.style.display = 'block';
+        setTimeout(() => msg.style.display = 'none', 2500);
+    }
+
+    loadData();
+</script>
+</body>
+</html>
